@@ -25,6 +25,7 @@
  * - 3 100K Ohm resistors (Hardware Debounce).
  * - 3 10K Ohm resistors (Hardware Debounce).
  * - 3 .1 uF ceramic capacitors (Hardware Debounce).
+ * - 1 4 or 8 Ohm speaker.
  *
  ******************************************************************************/
 
@@ -102,8 +103,6 @@ char extendBladeTrack[] = "ON11.raw";
 CHSV pixelsHSV[NUM_PIXELS];
 CRGB pixelsRGB[NUM_PIXELS];
 int currentHue;
-int baseSaturation;
-int baseValue;
 
 /*******************************************************************************
  * BLADE BEHAVIORS: The idea here is to state how the blade is to act or in
@@ -163,8 +162,8 @@ bladeBehavior previousBladeBehavior;
 #define DEFAULT_NORMAL_BEHAVIOR stable
 #define DEFAULT_PARTY_BEHAVIOR rainbow
 
-#define DEFAULT_SATURATION 255 // 0 = gray, to 255 = full color
-#define DEFAULT_VALUE 150 // 0 = no luminence, to 255 = fully bright
+#define BASE_SATURATION 255 // 0 = gray, to 255 = full color
+#define BASE_VALUE 150 // 0 = no luminence, to 255 = fully bright
 
 // Smaller values result in smoother transitions between colors but
 // you won't see as many colors at once in some animations.
@@ -179,7 +178,7 @@ void setup() {
 #ifdef DEBUG
 
     Serial.begin(9600);
-    while(!Serial){};
+    while(!Serial){}; // Wait for stream to kick in.
 
 #endif
 
@@ -282,9 +281,10 @@ void loop() {
  ******************************************************************************/
 void initPropShield() {
 
-    // Give the audio some memory but note the max used while cycling through
-    // final set. Whatever value is greatest is how much you should set aside
-    // using AudioMemory() below so update appropriately.
+    // Give the audio some memory but when debugging, note the max used by the
+    // final audio selections. Whatever value is greatest is how much you
+    // should specify. AudioMemory() will set that much aside but requesting
+    // more will simply go to waste.
     AudioMemory(10);
 
     // Enable the audio amp.
@@ -295,7 +295,7 @@ void initPropShield() {
     // Turn up the amp's power.
     dac.analogReference(EXTERNAL);
 
-    // Enable the serial flash.
+    // Enable the flash memory.
     if (!SerialFlash.begin(ENABLE_FLASH_PIN)) {
 
 #ifdef DEBUG
@@ -388,12 +388,16 @@ void initStateVariables(){
 void initLED() {
 
     currentHue = retrieveHue();
-    baseSaturation = DEFAULT_SATURATION;
-    baseValue = DEFAULT_VALUE;
 
     FastLED.addLeds<PIXEL_TYPE, LIGHT_STRIP_PIN, COLOR_ORDER>(pixelsRGB,
         NUM_PIXELS);
-    initPixels();
+
+    for(int i = 0; i < NUM_PIXELS; i++) {
+
+        pixelsRGB[i] = pixelsHSV[i] = CHSV(currentHue, BASE_SATURATION, 0);
+
+    }
+
     FastLED.show();
 
 #ifdef DEBUG
@@ -403,27 +407,6 @@ void initLED() {
 #endif
 
 } // end initLED
-
-
-/*******************************************************************************
- * This is a helper function used to group initialization of, in this case, a
- * strip of WS2812B addressable LEDs.
- ******************************************************************************/
-void initPixels() {
-
-    for(int i = 0; i < NUM_PIXELS; i++) {
-
-        pixelsRGB[i] = pixelsHSV[i] = CHSV(currentHue, baseSaturation, 0);
-
-    }
-
-#ifdef DEBUG
-
-    Serial.println("Pixels Initialized");
-
-#endif
-
-} // end initPixels
 
 
 /*******************************************************************************
@@ -492,14 +475,14 @@ void retractBlade() {
 void extendBlade() {
 
     static unsigned long lastUpdateTime = 0;
-    static unsigned long animationDelay;
+    static unsigned long extendAnimationDelay;
     static boolean firstPass = true;
 
     extendSoundPlayer.play(extendBladeTrack);
 
     if(firstPass) {
 
-        animationDelay = extendSoundPlayer.lengthMillis() / NUM_PIXELS;
+        extendAnimationDelay = extendSoundPlayer.lengthMillis() / NUM_PIXELS;
         firstPass = false;
 
     } // end first pass routine
@@ -509,8 +492,7 @@ void extendBlade() {
 
         if(hasEnoughTimePassed(animationDelay, lastUpdateTime)) {
 
-            pixelsHSV[i].value = baseValue;
-            pixelsRGB[i] = pixelsHSV[i];
+            pixelsRGB[i] = pixelsHSV[i].value = BASE_VALUE;
             FastLED.show();
 
             lastUpdateTime = millis();
@@ -519,6 +501,9 @@ void extendBlade() {
         }
 
     }
+
+    // If audio length and NUM_PIXELS don't divide cleanly, wait till done.
+    while(extendSoundPlayer.isPlaying()) {};
 
 } // end extendBlade
 
@@ -630,8 +615,8 @@ void rainbowAnimation() {
 
         CHSV hsv;
         hsv.hue = baseHue;
-        hsv.sat = DEFAULT_SATURATION;
-        hsv.val = DEFAULT_VALUE;
+        hsv.sat = BASE_SATURATION;
+        hsv.val = BASE_VALUE;
         for( int i = 0; i < NUM_PIXELS; i++) {
 
             pixelsRGB[i] = hsv;
@@ -677,8 +662,8 @@ void rainbowWithGlitterAnimation() {
 
         CHSV hsv;
         hsv.hue = baseHue;
-        hsv.sat = DEFAULT_SATURATION;
-        hsv.val = DEFAULT_VALUE;
+        hsv.sat = BASE_SATURATION;
+        hsv.val = BASE_VALUE;
         for( int i = 0; i < NUM_PIXELS; i++) {
 
             pixelsRGB[i] = hsv;
@@ -726,8 +711,8 @@ void verticalRainbowAnimation() {
 
         CHSV hsv;
         hsv.hue = baseHue;
-        hsv.sat = DEFAULT_SATURATION;
-        hsv.val = DEFAULT_VALUE;
+        hsv.sat = BASE_SATURATION;
+        hsv.val = BASE_VALUE;
         for( int i = 0; i < NUM_PIXELS; i++) {
             pixelsRGB[i] = hsv;
             hsv.hue += DEFAULT_DELTA_HUE;
@@ -903,7 +888,7 @@ void unstableBladeAnimation() {
     // Reset all the values.
     for(int i = 0; i < NUM_PIXELS; i++) {
 
-        pixelsRGB[i] = pixelsHSV[i].value = DEFAULT_VALUE;
+        pixelsRGB[i] = pixelsHSV[i].value = BASE_VALUE;
 
     }
 
