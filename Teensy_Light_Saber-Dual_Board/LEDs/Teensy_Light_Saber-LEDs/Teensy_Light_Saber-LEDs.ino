@@ -84,6 +84,11 @@ bladeBehavior previousBladeBehavior;
 #define BASE_SATURATION 220 // 0 = gray, to 255 = full color
 #define BASE_VALUE 150 // 0 = no luminence, to 255 = fully bright
 
+// Smaller values result in smoother transitions between colors but
+// you won't see as many colors at once in some animations.
+#define DEFAULT_DELTA_HUE 2
+
+// Smaller values speed animations up, Larger value slow them down.
 #define ANIMATION_SPEED 2
 
 // Length of the certain sound effects in Milliseconds.
@@ -134,60 +139,60 @@ void loop() {
 
         }
 
-        // if(isPartyMode) {
-        //
-        //     switch(currentBladeBehavior) {
-        //         case rainbow:
-        //             rainbowAnimation();
-        //             break;
-        //         case rainbowWithGlitter:
-        //             rainbowWithGlitterAnimation();
-        //             break;
-        //         case verticalRainbow:
-        //             verticalRainbowAnimation();
-        //             break;
-        //         case confetti:
-        //             confettiAnimation();
-        //             break;
-        //         case cylon:
-        //             cylonAnimation();
-        //             break;
-        //         case bpm:
-        //             bpmAnimation();
-        //             break;
-        //         case juggle:
-        //             juggleAnimation();
-        //             break;
-        //         default:
-        //             rainbowAnimation(); // choose what you like.
-        //             break;
-        //
-        //     } // end party mode animation switch
-        //
-        // } else {
-        //
-        //     switch(currentBladeBehavior) {
-        //
-        //         case stable:
-        //             stableBladeAnimation();
-        //             break;
-        //         case unstable:
-        //             unstableBladeAnimation();
-        //             break;
-        //         case pulsing:
-        //             pulsingBladeAnimation();
-        //             break;
-        //         default:
-        //             // DO SOMETHING
-        //             break;
-        //
-        //     } // end normal mode animation switch
-        //
-        // } // end animation if/else block
+        if(isPartyMode) {
+
+            switch(currentBladeBehavior) {
+                case rainbow:
+                    rainbowAnimation();
+                    break;
+                case rainbowWithGlitter:
+                    rainbowWithGlitterAnimation();
+                    break;
+                case verticalRainbow:
+                    verticalRainbowAnimation();
+                    break;
+                case confetti:
+                    confettiAnimation();
+                    break;
+                case cylon:
+                    cylonAnimation();
+                    break;
+                case bpm:
+                    bpmAnimation();
+                    break;
+                case juggle:
+                    juggleAnimation();
+                    break;
+                default:
+                    rainbowAnimation(); // choose what you like.
+                    break;
+
+            } // end party mode animation switch
+
+        } else {
+
+            switch(currentBladeBehavior) {
+
+                case stable:
+                    stableBladeAnimation();
+                    break;
+                case unstable:
+                    unstableBladeAnimation();
+                    break;
+                case pulsing:
+                    pulsingBladeAnimation();
+                    break;
+                default:
+                    // DO SOMETHING
+                    break;
+
+            } // end normal mode animation switch
+
+        } // end animation if/else block
 
     }
 
-    // FastLED.show();
+    FastLED.show();
 
 } // end loop
 
@@ -498,6 +503,408 @@ int retrieveHue() {
     return map(analogRead(HUE_PIN), 0, 1023, 0, 255);
 
 } // end retrieveHue
+
+
+void rainbowAnimation() {
+
+    static int baseHue;
+    static unsigned long lastUpdateTime = 0L;
+
+    if(behaviorChanged) {
+
+        baseHue = initRainbowAnimation();
+        behaviorChanged = !behaviorChanged;
+
+    }
+
+    if(hasEnoughTimePassed(ANIMATION_SPEED, lastUpdateTime)) {
+
+        CHSV hsv;
+        hsv.hue = baseHue;
+        hsv.sat = BASE_SATURATION;
+        hsv.val = BASE_VALUE;
+        for( int i = 0; i < NUM_PIXELS; i++) {
+
+            pixelsRGB[i] = hsv;
+
+        }
+
+        baseHue += DEFAULT_DELTA_HUE;
+        lastUpdateTime = millis();
+
+    }
+
+} // end rainbowAnimation
+
+
+int initRainbowAnimation() {
+
+    // Think of a way to smoothly fade each pixel to the desired color.
+
+#ifdef DEBUG
+
+    Serial.println("Starting RAINBOW animation");
+
+#endif
+
+    return retrieveHue();
+
+} // end initRainbowAnimation
+
+
+void rainbowWithGlitterAnimation() {
+
+    static int baseHue;
+    static unsigned long lastUpdateTime = 0L;
+
+    if(behaviorChanged) {
+
+        baseHue = initRainbowWithGlitterAnimation();
+        behaviorChanged = !behaviorChanged;
+
+    }
+
+    if(hasEnoughTimePassed(ANIMATION_SPEED, lastUpdateTime)) {
+
+        CHSV hsv;
+        hsv.hue = baseHue;
+        hsv.sat = BASE_SATURATION;
+        hsv.val = BASE_VALUE;
+        for( int i = 0; i < NUM_PIXELS; i++) {
+
+            pixelsRGB[i] = hsv;
+
+        }
+
+        addGlitter(250);
+
+        baseHue += DEFAULT_DELTA_HUE;
+        lastUpdateTime = millis();
+
+    }
+
+} // end rainbowWithGlitter()
+
+
+int initRainbowWithGlitterAnimation() {
+
+    // Think of a way to smoothly fade each pixel to the desired color.
+
+#ifdef DEBUG
+
+    Serial.println("Starting RAINBOW w/Glitter animation");
+
+#endif
+
+    return retrieveHue();
+
+} // end initRainbowWithGlitterAnimation
+
+
+void verticalRainbowAnimation() {
+
+    static int baseHue;
+    static unsigned long lastUpdateTime = 0L;
+
+    if(behaviorChanged) {
+
+        baseHue = initVerticalRainbow();
+        behaviorChanged = !behaviorChanged;
+
+    }
+
+    if(hasEnoughTimePassed(ANIMATION_SPEED, lastUpdateTime)) {
+
+        CHSV hsv;
+        hsv.hue = baseHue;
+        hsv.sat = BASE_SATURATION;
+        hsv.val = BASE_VALUE;
+        for( int i = 0; i < NUM_PIXELS; i++) {
+            pixelsRGB[i] = hsv;
+            hsv.hue += DEFAULT_DELTA_HUE;
+        }
+
+        baseHue += DEFAULT_DELTA_HUE;
+        lastUpdateTime = millis();
+
+    }
+
+} // end verticalRainbowAnimation
+
+
+int initVerticalRainbow() {
+
+    // Think of a way to smoothly fade each pixel to the desired color.
+
+#ifdef DEBUG
+
+    Serial.println("Starting VERTICAL RAINBOW animation");
+
+#endif
+
+    return retrieveHue();
+
+} // end initVerticalRainbow
+
+
+void confettiAnimation() {
+
+    if(behaviorChanged) {
+
+        initConfettiAnimation();
+        behaviorChanged = !behaviorChanged;
+
+    }
+
+} // end confettiAnimation
+
+
+void initConfettiAnimation() {
+
+#ifdef DEBUG
+
+        Serial.println("Starting CONFETTI animation");
+
+#endif
+
+} // end initConfettiAnimation
+
+
+void cylonAnimation() {
+
+    if(behaviorChanged) {
+
+        initCylonAnimation();
+        behaviorChanged = !behaviorChanged;
+
+    }
+
+} // end cylonAnimation
+
+
+void initCylonAnimation() {
+
+#ifdef DEBUG
+
+    Serial.println("Starting CYLON animation");
+
+#endif
+
+} // end initCylonAnimation
+
+
+void bpmAnimation() {
+
+    if(behaviorChanged) {
+
+        initBPMAnimation();
+        behaviorChanged = !behaviorChanged;
+
+    }
+
+} // end bpmAnimation
+
+
+void initBPMAnimation() {
+
+#ifdef DEBUG
+
+        Serial.println("Starting BPM animation");
+
+#endif
+
+} // end initBPMAnimation
+
+
+void juggleAnimation() {
+
+    if(behaviorChanged) {
+
+        initJuggleAnimation();
+        behaviorChanged = !behaviorChanged;
+
+    }
+
+} // end juggleAnimation
+
+
+void initJuggleAnimation() {
+
+#ifdef DEBUG
+
+    Serial.println("Starting JUGGLE animation");
+
+#endif
+
+} // end initJuggleAnimation
+
+
+void stableBladeAnimation() {
+
+    int tempHue = retrieveHue();
+
+    if(behaviorChanged) {
+
+        initStableBladeAnimation();
+        behaviorChanged = !behaviorChanged;
+
+    }
+
+    // Only update if a change was made.
+    if(tempHue != currentHue) {
+
+        changeHue(tempHue);
+
+    }
+
+} // end stableBladeAnimation
+
+
+void initStableBladeAnimation() {
+
+    changeHue(retrieveHue());
+
+#ifdef DEBUG
+
+        Serial.println("Starting STABLE animation");
+
+#endif
+
+} // end initStableBladeAnimation
+
+
+void unstableBladeAnimation() {
+
+    int tempHue = retrieveHue();
+
+    if(behaviorChanged) {
+
+        initUnstableBladeAnimation();
+        behaviorChanged = !behaviorChanged;
+
+    }
+
+    // Only update if a change was made.
+    if(tempHue != currentHue) {
+
+        changeHue(tempHue);
+
+    }
+
+    // Reset all the values.
+    for(int i = 0; i < NUM_PIXELS; i++) {
+
+        pixelsRGB[i] = pixelsHSV[i].value = BASE_VALUE;
+
+    }
+
+    addSparkle(150);
+
+} // end unstableBladeAnimation
+
+
+void initUnstableBladeAnimation() {
+
+    changeHue(retrieveHue());
+
+#ifdef DEBUG
+
+        Serial.println("Starting UNSTABLE animation");
+
+#endif
+
+} // end initUnstableBladeAnimation
+
+
+void pulsingBladeAnimation() {
+
+    int tempHue = retrieveHue();
+
+    if(behaviorChanged) {
+
+        initPulsingBladeAnimation();
+        behaviorChanged = !behaviorChanged;
+
+    }
+
+    // Only update if a change was made.
+    if(tempHue != currentHue) {
+
+        changeHue(tempHue);
+
+    }
+
+} // end pulsingBladeAnimation
+
+
+void initPulsingBladeAnimation() {
+
+    changeHue(retrieveHue());
+
+#ifdef DEBUG
+
+        Serial.println("Starting PULSING animation");
+
+#endif
+
+} // end initPulsingBladeAnimation
+
+
+/*******************************************************************************
+ * This is an add-on effect to any animation. It will cause random "glitter" or
+ * bright white spots to appear in addition to the normal animation.
+ *
+ * @param chanceOfGlitter - An unsigned integer between 0 and 255. The larger
+ * the value, the greater the chance of glitter to appear.
+ ******************************************************************************/
+void addGlitter(uint8_t chanceOfGlitter) {
+
+  if(random8() < chanceOfGlitter) {
+
+    pixelsRGB[random16(NUM_PIXELS)] += CRGB::White;
+
+  }
+
+} // end addGlitter
+
+
+/*******************************************************************************
+ * This is an add-on effect to any animation. It will cause random "sparkle" or
+ * bright spots to appear in addition to the normal animation.
+ *
+ * @param chanceOfSparkle - An unsigned integer between 0 and 255. The larger
+ * the value, the greater the chance of sparkle to appear.
+ ******************************************************************************/
+void addSparkle(uint8_t chanceOfSparkle) {
+
+  if(random8() < chanceOfSparkle) {
+
+    int tempIndex = random16(NUM_PIXELS);
+    CHSV tempCHSV = pixelsHSV[tempIndex];
+    tempCHSV.value = 255;
+    pixelsRGB[tempIndex] = tempCHSV;
+
+  }
+
+} // end addSparkle
+
+
+/*******************************************************************************
+ * This function is used to update all pixels with a specified hue.
+ *
+ * @param newHue - The new/replacement hue.
+ ******************************************************************************/
+void changeHue(int newHue) {
+
+    currentHue = newHue;
+    for(int i = 0; i < NUM_PIXELS; i++) {
+
+        pixelsHSV[i].hue = currentHue;
+        pixelsRGB[i] = pixelsHSV[i];
+
+    }
+
+} // end changeHue
 
 
 /*******************************************************************************
