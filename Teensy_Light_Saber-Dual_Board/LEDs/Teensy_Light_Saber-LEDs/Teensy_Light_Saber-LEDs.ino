@@ -86,10 +86,10 @@ bladeBehavior previousBladeBehavior;
 
 #define ANIMATION_SPEED 2
 
-// Length of the extend sound effect in Milliseconds.
+// Length of the certain sound effects in Milliseconds.
 unsigned long extendSoundDuration = 2475;
+unsigned long retractSoundDuration = 1763;
 
-/******************************************************************************/
 void setup() {
 
 #ifdef DEBUG
@@ -299,6 +299,7 @@ void toggleBlade() {
 
     }
 
+    // Update the flag, blade should now be in the opposite state.
     isBladeExtended = !isBladeExtended;
 
 } // end toggleBlade
@@ -309,19 +310,43 @@ void toggleBlade() {
  ******************************************************************************/
 void retractBlade() {
 
+    static unsigned long lastUpdateTime = 0;
+    static unsigned long retractAnimationDelay;
+    static boolean firstPass = true;
+
+    if(firstPass) {
+
+        retractAnimationDelay = retractSoundDuration / NUM_PIXELS;
+        firstPass = false;
+
+    }
+
 #ifdef DEBUG
 
-    Serial.println("Blade is going down");
+    Serial.print("Retracting Blade... ");
 
 #endif
 
-    for(int i = NUM_PIXELS - 1; i >= 0; i--) {
+    int i = NUM_PIXELS - 1;
+    while(i >= 0) {
 
-        // pixelsHSV[i].value = 0;
-        // pixelsRGB[i] = pixelsHSV[i];
-        // FastLED.show();
+        if(hasEnoughTimePassed(retractAnimationDelay, lastUpdateTime)) {
+
+            pixelsRGB[i] = pixelsHSV[i].value = 0;
+            FastLED.show();
+
+            lastUpdateTime = millis();
+            i--;
+
+        }
 
     }
+
+#ifdef DEBUG
+
+    Serial.println("Blade Retracted");
+
+#endif
 
 } // end retractBlade
 
@@ -344,7 +369,7 @@ void extendBlade() {
 
     #ifdef DEBUG
 
-        Serial.println("Blade Extending");
+        Serial.print("Extending Blade... ");
 
     #endif
 
