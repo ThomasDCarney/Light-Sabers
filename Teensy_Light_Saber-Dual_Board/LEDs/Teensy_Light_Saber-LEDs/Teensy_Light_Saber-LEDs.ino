@@ -71,6 +71,7 @@ boolean behaviorChanged;
 bladeBehavior currentBladeBehavior;
 bladeBehavior previousBladeBehavior;
 
+
 /*******************************************************************************
  * CONTROL PANEL: These are the only settings that you'll need to customize as
  * long as your blade matches the hardware/layout specified above. More than
@@ -81,7 +82,7 @@ bladeBehavior previousBladeBehavior;
 #define DEFAULT_NORMAL_BEHAVIOR stable
 #define DEFAULT_PARTY_BEHAVIOR rainbow
 
-#define BASE_SATURATION 220 // 0 = gray, to 255 = full color
+#define BASE_SATURATION 255 // 0 = gray, to 255 = full color
 #define BASE_VALUE 150 // 0 = no luminence, to 255 = fully bright
 
 // Smaller values result in smoother transitions between colors but
@@ -94,6 +95,12 @@ bladeBehavior previousBladeBehavior;
 // Length of the certain sound effects in Milliseconds.
 unsigned long extendSoundDuration = 2475;
 unsigned long retractSoundDuration = 1763;
+
+// For CYLON animation
+#define CYLON_EYE_SIZE 4
+#define CYLON_FEATHER_WIDTH 3
+#define CYLON_FEATHER_MODIFIER 5
+#define CYLON_TIMING_MODIFIER 40
 
 void setup() {
 
@@ -505,6 +512,21 @@ int retrieveHue() {
 } // end retrieveHue
 
 
+/*******************************************************************************
+ * This is a helper function used to clear or "turn off" all pixels.
+ ******************************************************************************/
+void clearPixels() {
+
+    for(int i = 0; i < NUM_PIXELS; i++) {
+
+        pixelsHSV[i].value = 0;
+        pixelsRGB[i] = pixelsHSV[i];
+
+    }
+
+} // end clearPixels
+
+
 void rainbowAnimation() {
 
     static int baseHue;
@@ -672,10 +694,79 @@ void initConfettiAnimation() {
 
 void cylonAnimation() {
 
+    static unsigned long lastUpdateTime;
+    static unsigned int cylonEyeHead;
+    static unsigned int cylonEyeTail;
+    static boolean cylonMovingForward;
+
+    // Initialize animation.
     if(behaviorChanged) {
 
         initCylonAnimation();
+        lastUpdateTime = 0;
+        cylonEyeHead = 0;
+        cylonEyeTail = (CYLON_FEATHER_WIDTH * 2) + CYLON_EYE_SIZE - 1;
+        cylonMovingForward = true; // True for hilt -> tip, false otherwise
         behaviorChanged = !behaviorChanged;
+
+    }
+
+    // Change CYLON_TIMING_MODIFIER to speed or slow the animation
+    if(hasEnoughTimePassed(CYLON_TIMING_MODIFIER, lastUpdateTime)) {
+
+        clearPixels();
+
+        int i = cylonEyeHead;
+
+        // feather in and out
+        for(int j = 0; j < CYLON_FEATHER_WIDTH; i++, j++) {
+
+            int tempValue = BASE_VALUE /
+            ((CYLON_FEATHER_WIDTH - j) * CYLON_FEATHER_MODIFIER);
+
+            pixelsHSV[i].value = tempValue;
+            pixelsHSV[cylonEyeTail - j].value = tempValue;
+
+        }
+
+        // update the eye
+        for(int j = 0; j < CYLON_EYE_SIZE; i++, j++) {
+
+            pixelsHSV[i].value = BASE_VALUE;
+
+        }
+
+        //update head and tail for next pass
+        if(cylonMovingForward) { // Moving from hilt -> tip
+
+            cylonEyeHead++;
+            cylonEyeTail++;
+
+            // Toggle direction if tail hits the tip
+            if(cylonEyeTail == NUM_PIXELS) {
+
+                cylonMovingForward = !cylonMovingForward;
+
+            }
+
+        } else { // Moving from tip <- hilt
+
+            cylonEyeHead--;
+            cylonEyeTail--;
+
+            // Toggle direction if head hits the hilt
+            if(cylonEyeHead == 0) {
+
+                cylonMovingForward = !cylonMovingForward;
+
+            }
+
+        } // end animation update
+
+        // Now that updated values determined, update physical LEDs
+        writeToRGB();
+        FastLED.show();
+        lastUpdateTime = millis();
 
     }
 
@@ -684,13 +775,14 @@ void cylonAnimation() {
 
 void initCylonAnimation() {
 
-#ifdef DEBUG
+    for(int i = 0; i < NUM_PIXELS; i++) {
 
-    Serial.println("Starting CYLON animation");
+        pixelsHSV[i].hue = 255;
+        pixelsRGB[i] = pixelsHSV[i];
 
-#endif
+    }
 
-} // end initCylonAnimation
+}
 
 
 void bpmAnimation() {
@@ -922,6 +1014,17 @@ boolean hasEnoughTimePassed(unsigned long delayInterval,
   return (millis() - lastUpdateTime) >= delayInterval;
 
 } // end hasEnoughTimePassed
+
+
+void writeToRGB() {
+
+    for(int i = 0; i < NUM_PIXELS; i++) {
+
+        pixelsRGB[i] = pixelsHSV[i];
+
+    }
+
+} // end writeToRGB
 
 
 /*******************************************************************************
