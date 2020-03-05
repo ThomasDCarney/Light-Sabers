@@ -93,8 +93,8 @@ bladeBehavior previousBladeBehavior;
 #define ANIMATION_SPEED 2
 
 // Length of the certain sound effects in Milliseconds.
-unsigned long extendSoundDuration = 2475;
-unsigned long retractSoundDuration = 1763;
+#define EXTEND_SOUND_DURATION 1475
+#define RETRACT_SOUND_DURATION 1063
 
 // For CYLON animation
 #define CYLON_EYE_SIZE 4
@@ -199,8 +199,6 @@ void loop() {
 
     }
 
-    FastLED.show();
-
 } // end loop
 
 
@@ -283,9 +281,11 @@ void initLights() {
 
     for(int i = 0; i < NUM_PIXELS; i++) {
 
-        pixelsRGB[i] = pixelsHSV[i] = CHSV(currentHue, BASE_SATURATION, 0);
+        pixelsHSV[i] = CHSV(currentHue, BASE_SATURATION, 0);
 
     }
+
+    writeToRGB();
 
 #ifdef DEBUG
 
@@ -298,6 +298,9 @@ void initLights() {
 
 /*******************************************************************************
  * This function will toggle the blade between retracted and extended states.
+ * Slightly different than other animations as the whole animation must complete
+ * in one pass. This is because audio is tied to the effect and would not seem
+ * correct starting/stopping midway.
  ******************************************************************************/
 void toggleBlade() {
 
@@ -318,17 +321,18 @@ void toggleBlade() {
 
 
 /*******************************************************************************
- * This function will retract the blade.
+ * This is a helper function for toggleBlade and will retract the blade.
  ******************************************************************************/
 void retractBlade() {
 
-    static unsigned long lastUpdateTime = 0;
     static unsigned long retractAnimationDelay;
     static boolean firstPass = true;
+    unsigned long lastUpdateTime = 0;
 
+    // Only do this the first time through the function.
     if(firstPass) {
 
-        retractAnimationDelay = retractSoundDuration / NUM_PIXELS;
+        retractAnimationDelay = RETRACT_SOUND_DURATION / NUM_PIXELS;
         firstPass = false;
 
     }
@@ -344,7 +348,21 @@ void retractBlade() {
 
         if(hasEnoughTimePassed(retractAnimationDelay, lastUpdateTime)) {
 
-            pixelsRGB[i] = pixelsHSV[i].value = 0;
+            // Only update HUE if in normal mode.
+            if(!isPartyMode) {
+
+                int tempHue = retrieveHue();
+                if(tempHue != currentHue) {
+
+                    changeAllHues(tempHue);
+
+                }
+
+            }
+
+            pixelsHSV[i].value = 0; // Turn pixels off
+
+            writeToRGB();
             FastLED.show();
 
             lastUpdateTime = millis();
@@ -364,17 +382,18 @@ void retractBlade() {
 
 
 /*******************************************************************************
- * This function will extend the blade.
+ * This is a helper function for toggleBlade and will extend the blade.
  ******************************************************************************/
 void extendBlade() {
 
-    static unsigned long lastUpdateTime = 0;
     static unsigned long extendAnimationDelay;
     static boolean firstPass = true;
+    unsigned long lastUpdateTime = 0;
 
+    // Only do this the first time through the function.
     if(firstPass) {
 
-        extendAnimationDelay = extendSoundDuration / NUM_PIXELS;
+        extendAnimationDelay = EXTEND_SOUND_DURATION / NUM_PIXELS;
         firstPass = false;
 
     }
@@ -390,7 +409,21 @@ void extendBlade() {
 
         if(hasEnoughTimePassed(extendAnimationDelay, lastUpdateTime)) {
 
-            pixelsRGB[i] = pixelsHSV[i].value = BASE_VALUE;
+            // Only update HUE if in normal mode.
+            if(!isPartyMode) {
+
+                int tempHue = retrieveHue();
+                if(tempHue != currentHue) {
+
+                    changeAllHues(tempHue);
+
+                }
+
+            }
+
+            pixelsHSV[i].value = BASE_VALUE; // Turn pixels on
+
+            writeToRGB();
             FastLED.show();
 
             lastUpdateTime = millis();
@@ -782,7 +815,7 @@ void initCylonAnimation() {
 
     }
 
-}
+} // end initCylonAnimation
 
 
 void bpmAnimation() {
@@ -837,7 +870,7 @@ void stableBladeAnimation() {
 
     if(behaviorChanged) {
 
-        initStableBladeAnimation();
+        initStableBladeAnimation(tempHue);
         behaviorChanged = !behaviorChanged;
 
     }
@@ -845,16 +878,19 @@ void stableBladeAnimation() {
     // Only update if a change was made.
     if(tempHue != currentHue) {
 
-        changeHue(tempHue);
+        changeAllHues(tempHue);
+        writeToRGB();
+        FastLED.show();
 
     }
 
 } // end stableBladeAnimation
 
 
-void initStableBladeAnimation() {
+void initStableBladeAnimation(int tempHue) {
 
-    changeHue(retrieveHue());
+    changeAllHues(tempHue);
+    changeAllValues(BASE_VALUE);
 
 #ifdef DEBUG
 
@@ -879,7 +915,7 @@ void unstableBladeAnimation() {
     // Only update if a change was made.
     if(tempHue != currentHue) {
 
-        changeHue(tempHue);
+        changeAllHues(tempHue);
 
     }
 
@@ -897,7 +933,7 @@ void unstableBladeAnimation() {
 
 void initUnstableBladeAnimation() {
 
-    changeHue(retrieveHue());
+    changeAllHues(retrieveHue());
 
 #ifdef DEBUG
 
@@ -922,7 +958,7 @@ void pulsingBladeAnimation() {
     // Only update if a change was made.
     if(tempHue != currentHue) {
 
-        changeHue(tempHue);
+        changeAllHues(tempHue);
 
     }
 
@@ -931,7 +967,7 @@ void pulsingBladeAnimation() {
 
 void initPulsingBladeAnimation() {
 
-    changeHue(retrieveHue());
+    changeAllHues(retrieveHue());
 
 #ifdef DEBUG
 
@@ -986,17 +1022,31 @@ void addSparkle(uint8_t chanceOfSparkle) {
  *
  * @param newHue - The new/replacement hue.
  ******************************************************************************/
-void changeHue(int newHue) {
+void changeAllHues(int newHue) {
 
     currentHue = newHue;
     for(int i = 0; i < NUM_PIXELS; i++) {
 
         pixelsHSV[i].hue = currentHue;
-        pixelsRGB[i] = pixelsHSV[i];
 
     }
 
-} // end changeHue
+    writeToRGB();
+
+} // end changeAllHues
+
+
+void changeAllValues(int newValue) {
+
+    for(int i = 0; i < NUM_PIXELS; i++) {
+
+        pixelsHSV[i].value = newValue;
+
+    }
+
+    writeToRGB();
+
+} // end changeAllValues
 
 
 /*******************************************************************************
