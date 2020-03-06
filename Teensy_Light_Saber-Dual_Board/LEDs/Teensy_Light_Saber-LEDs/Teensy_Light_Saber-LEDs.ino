@@ -96,6 +96,13 @@ bladeBehavior previousBladeBehavior;
 #define EXTEND_SOUND_DURATION 1475
 #define RETRACT_SOUND_DURATION 1063
 
+// For Stable Blade animation
+#define STABLE_TIMING_MODIFIER 70 // Lower value increases refresh rate
+
+// For Unstable Blade animation
+#define UNSTABLE_TIMING_MODIFIER 70 // Lower value increased refresh rate
+#define UNSTABLE_CHANCE_MODIFIER 80 // Higher value increase sparkle rate
+
 // For CYLON animation
 #define CYLON_EYE_SIZE 4
 #define CYLON_FEATHER_WIDTH 3
@@ -866,30 +873,37 @@ void initJuggleAnimation() {
 
 void stableBladeAnimation() {
 
+    static unsigned long lastUpdateTime = 0;
     int tempHue = retrieveHue();
 
     if(behaviorChanged) {
 
-        initStableBladeAnimation(tempHue);
+        initStableBladeAnimation();
         behaviorChanged = !behaviorChanged;
 
     }
 
-    // Only update if a change was made.
-    if(tempHue != currentHue) {
+    if(hasEnoughTimePassed(STABLE_TIMING_MODIFIER, lastUpdateTime)) {
 
-        changeAllHues(tempHue);
+        // Only update if a change was made.
+        if(tempHue != currentHue) {
+
+            changeAllHues(tempHue);
+
+        }
+
         writeToRGB();
         FastLED.show();
+        lastUpdateTime = millis();
 
     }
 
 } // end stableBladeAnimation
 
 
-void initStableBladeAnimation(int tempHue) {
+void initStableBladeAnimation() {
 
-    changeAllHues(tempHue);
+    changeAllHues(retrieveHue());
     changeAllValues(BASE_VALUE);
 
 #ifdef DEBUG
@@ -903,6 +917,7 @@ void initStableBladeAnimation(int tempHue) {
 
 void unstableBladeAnimation() {
 
+    static unsigned long lastUpdateTime = 0;
     int tempHue = retrieveHue();
 
     if(behaviorChanged) {
@@ -912,21 +927,23 @@ void unstableBladeAnimation() {
 
     }
 
-    // Only update if a change was made.
-    if(tempHue != currentHue) {
 
-        changeAllHues(tempHue);
+    if(hasEnoughTimePassed(UNSTABLE_TIMING_MODIFIER, lastUpdateTime)) {
+
+        // Only update if a change was made.
+        if(tempHue != currentHue) {
+
+            changeAllHues(tempHue);
+
+        }
+
+        changeAllValues(BASE_VALUE);
+        addSparkle(UNSTABLE_CHANCE_MODIFIER);
+        writeToRGB();
+        FastLED.show();
+        lastUpdateTime = millis();
 
     }
-
-    // Reset all the values.
-    for(int i = 0; i < NUM_PIXELS; i++) {
-
-        pixelsRGB[i] = pixelsHSV[i].value = BASE_VALUE;
-
-    }
-
-    addSparkle(150);
 
 } // end unstableBladeAnimation
 
@@ -934,6 +951,7 @@ void unstableBladeAnimation() {
 void initUnstableBladeAnimation() {
 
     changeAllHues(retrieveHue());
+    changeAllValues(BASE_VALUE);
 
 #ifdef DEBUG
 
@@ -1007,10 +1025,7 @@ void addSparkle(uint8_t chanceOfSparkle) {
 
   if(random8() < chanceOfSparkle) {
 
-    int tempIndex = random16(NUM_PIXELS);
-    CHSV tempCHSV = pixelsHSV[tempIndex];
-    tempCHSV.value = 255;
-    pixelsRGB[tempIndex] = tempCHSV;
+    pixelsHSV[random16(NUM_PIXELS)].value = 255;
 
   }
 
