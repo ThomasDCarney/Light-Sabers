@@ -68,6 +68,7 @@ volatile boolean shouldBehaviorChange;
 boolean isBladeExtended;
 boolean isPartyMode;
 boolean behaviorChanged;
+boolean animationEffectApplied;
 bladeBehavior currentBladeBehavior;
 bladeBehavior previousBladeBehavior;
 
@@ -89,9 +90,6 @@ bladeBehavior previousBladeBehavior;
 // you won't see as many colors at once in some animations.
 #define DEFAULT_DELTA_HUE 2
 
-// Smaller values speed animations up, Larger value slow them down.
-#define ANIMATION_SPEED 2
-
 // Length of the certain sound effects in Milliseconds.
 #define EXTEND_SOUND_DURATION 1475
 #define RETRACT_SOUND_DURATION 1063
@@ -102,6 +100,11 @@ bladeBehavior previousBladeBehavior;
 // For Unstable Blade animation
 #define UNSTABLE_TIMING_MODIFIER 70 // Lower value increased refresh rate
 #define UNSTABLE_CHANCE_MODIFIER 80 // Higher value increase sparkle rate
+
+// For Rainbow type animations
+#define RAINBOW_SPEED_MODIFIER 75
+#define RAINBOW_DELTA_HUE 2
+#define RAINBOW_CHANCE_OF_GLITTER 200
 
 // For CYLON animation
 #define CYLON_EYE_SIZE 4
@@ -248,6 +251,7 @@ void initStateVariables(){
     shouldBladeToggle = false;
     shouldModeChange = false;
     shouldBehaviorChange = false;
+    animationEffectApplied = false;
 
     // Leave true so the default behavior will be initialized.
     behaviorChanged = true;
@@ -569,29 +573,27 @@ void clearPixels() {
 
 void rainbowAnimation() {
 
-    static int baseHue;
+    static int nextHue;
     static unsigned long lastUpdateTime = 0L;
 
     if(behaviorChanged) {
 
-        baseHue = initRainbowAnimation();
+        nextHue = initRainbowAnimation();
         behaviorChanged = !behaviorChanged;
 
     }
 
-    if(hasEnoughTimePassed(ANIMATION_SPEED, lastUpdateTime)) {
+    if(hasEnoughTimePassed(RAINBOW_SPEED_MODIFIER, lastUpdateTime)) {
 
-        CHSV hsv;
-        hsv.hue = baseHue;
-        hsv.sat = BASE_SATURATION;
-        hsv.val = BASE_VALUE;
         for( int i = 0; i < NUM_PIXELS; i++) {
 
-            pixelsRGB[i] = hsv;
+            pixelsHSV[i].hue = nextHue;
 
         }
 
-        baseHue += DEFAULT_DELTA_HUE;
+        writeToRGB();
+        FastLED.show();
+        nextHue += RAINBOW_DELTA_HUE;
         lastUpdateTime = millis();
 
     }
@@ -609,6 +611,8 @@ int initRainbowAnimation() {
 
 #endif
 
+    changeAllSaturation(BASE_SATURATION);
+    changeAllValues(BASE_VALUE);
     return retrieveHue();
 
 } // end initRainbowAnimation
@@ -616,31 +620,35 @@ int initRainbowAnimation() {
 
 void rainbowWithGlitterAnimation() {
 
-    static int baseHue;
+    static int nextHue;
     static unsigned long lastUpdateTime = 0L;
 
     if(behaviorChanged) {
 
-        baseHue = initRainbowWithGlitterAnimation();
+        nextHue = initRainbowWithGlitterAnimation();
         behaviorChanged = !behaviorChanged;
 
     }
 
-    if(hasEnoughTimePassed(ANIMATION_SPEED, lastUpdateTime)) {
+    if(animationEffectApplied) {
 
-        CHSV hsv;
-        hsv.hue = baseHue;
-        hsv.sat = BASE_SATURATION;
-        hsv.val = BASE_VALUE;
+        resetSV();
+
+    }
+
+    if(hasEnoughTimePassed(RAINBOW_SPEED_MODIFIER, lastUpdateTime)) {
+
         for( int i = 0; i < NUM_PIXELS; i++) {
 
-            pixelsRGB[i] = hsv;
+            pixelsHSV[i].hue = nextHue;
 
         }
 
-        addGlitter(250);
+        addGlitter(RAINBOW_CHANCE_OF_GLITTER);
 
-        baseHue += DEFAULT_DELTA_HUE;
+        writeToRGB();
+        FastLED.show();
+        nextHue += RAINBOW_DELTA_HUE;
         lastUpdateTime = millis();
 
     }
@@ -650,14 +658,14 @@ void rainbowWithGlitterAnimation() {
 
 int initRainbowWithGlitterAnimation() {
 
-    // Think of a way to smoothly fade each pixel to the desired color.
-
 #ifdef DEBUG
 
     Serial.println("Starting RAINBOW w/Glitter animation");
 
 #endif
 
+    changeAllSaturation(BASE_SATURATION);
+    changeAllValues(BASE_VALUE);
     return retrieveHue();
 
 } // end initRainbowWithGlitterAnimation
@@ -665,28 +673,35 @@ int initRainbowWithGlitterAnimation() {
 
 void verticalRainbowAnimation() {
 
-    static int baseHue;
+    static int nextStartHue;
+    int nextHue = nextStartHue;
     static unsigned long lastUpdateTime = 0L;
 
     if(behaviorChanged) {
 
-        baseHue = initVerticalRainbow();
+        nextStartHue = initVerticalRainbow();
         behaviorChanged = !behaviorChanged;
 
     }
 
-    if(hasEnoughTimePassed(ANIMATION_SPEED, lastUpdateTime)) {
+    if(animationEffectApplied) {
 
-        CHSV hsv;
-        hsv.hue = baseHue;
-        hsv.sat = BASE_SATURATION;
-        hsv.val = BASE_VALUE;
+        resetSV();
+
+    }
+
+    if(hasEnoughTimePassed(RAINBOW_SPEED_MODIFIER, lastUpdateTime)) {
+
         for( int i = 0; i < NUM_PIXELS; i++) {
-            pixelsRGB[i] = hsv;
-            hsv.hue += DEFAULT_DELTA_HUE;
+
+            pixelsHSV[i].hue = nextHue;
+            nextHue += RAINBOW_DELTA_HUE;
+
         }
 
-        baseHue += DEFAULT_DELTA_HUE;
+        writeToRGB();
+        FastLED.show();
+        nextStartHue += RAINBOW_DELTA_HUE;
         lastUpdateTime = millis();
 
     }
@@ -704,6 +719,8 @@ int initVerticalRainbow() {
 
 #endif
 
+    changeAllSaturation(BASE_SATURATION);
+    changeAllValues(BASE_VALUE);
     return retrieveHue();
 
 } // end initVerticalRainbow
@@ -927,6 +944,11 @@ void unstableBladeAnimation() {
 
     }
 
+    if(animationEffectApplied) {
+
+        resetSV();
+
+    }
 
     if(hasEnoughTimePassed(UNSTABLE_TIMING_MODIFIER, lastUpdateTime)) {
 
@@ -937,7 +959,6 @@ void unstableBladeAnimation() {
 
         }
 
-        changeAllValues(BASE_VALUE);
         addSparkle(UNSTABLE_CHANCE_MODIFIER);
         writeToRGB();
         FastLED.show();
@@ -1007,7 +1028,8 @@ void addGlitter(uint8_t chanceOfGlitter) {
 
   if(random8() < chanceOfGlitter) {
 
-    pixelsRGB[random16(NUM_PIXELS)] += CRGB::White;
+    pixelsHSV[random16(NUM_PIXELS)] = CHSV(255, 0, 255);
+    animationEffectApplied = true;
 
   }
 
@@ -1026,6 +1048,7 @@ void addSparkle(uint8_t chanceOfSparkle) {
   if(random8() < chanceOfSparkle) {
 
     pixelsHSV[random16(NUM_PIXELS)].value = 255;
+    animationEffectApplied = true;
 
   }
 
@@ -1039,18 +1062,36 @@ void addSparkle(uint8_t chanceOfSparkle) {
  ******************************************************************************/
 void changeAllHues(int newHue) {
 
-    currentHue = newHue;
     for(int i = 0; i < NUM_PIXELS; i++) {
 
-        pixelsHSV[i].hue = currentHue;
+        pixelsHSV[i].hue = newHue;
 
     }
-
-    writeToRGB();
 
 } // end changeAllHues
 
 
+/*******************************************************************************
+ * This function is used to update all pixels with a specified saturation.
+ *
+ * @param newSaturation - The new/replacement saturation.
+ ******************************************************************************/
+void changeAllSaturation(int newSaturation) {
+
+    for(int i = 0; i < NUM_PIXELS; i++) {
+
+        pixelsHSV[i].saturation = newSaturation;
+
+    }
+
+} // end changeAllSaturation
+
+
+/*******************************************************************************
+ * This function is used to update all pixels with a specified value.
+ *
+ * @param newValue - The new/replacement value.
+ ******************************************************************************/
 void changeAllValues(int newValue) {
 
     for(int i = 0; i < NUM_PIXELS; i++) {
@@ -1059,9 +1100,16 @@ void changeAllValues(int newValue) {
 
     }
 
-    writeToRGB();
-
 } // end changeAllValues
+
+
+void resetSV() {
+
+    changeAllSaturation(BASE_SATURATION);
+    changeAllValues(BASE_VALUE);
+    animationEffectApplied = false;
+
+} // end resetSV
 
 
 /*******************************************************************************
