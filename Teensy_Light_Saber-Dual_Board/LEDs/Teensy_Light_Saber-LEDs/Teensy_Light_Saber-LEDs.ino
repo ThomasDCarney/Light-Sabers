@@ -84,11 +84,7 @@ bladeBehavior previousBladeBehavior;
 #define DEFAULT_PARTY_BEHAVIOR rainbow
 
 #define BASE_SATURATION 255 // 0 = gray, to 255 = full color
-#define BASE_VALUE 150 // 0 = no luminence, to 255 = fully bright
-
-// Smaller values result in smoother transitions between colors but
-// you won't see as many colors at once in some animations.
-#define DEFAULT_DELTA_HUE 2
+#define BASE_VALUE 125 // 0 = no luminence, to 255 = fully bright
 
 // Length of the certain sound effects in Milliseconds.
 #define EXTEND_SOUND_DURATION 1475
@@ -103,7 +99,7 @@ bladeBehavior previousBladeBehavior;
 
 // For Rainbow type animations
 #define RAINBOW_SPEED_MODIFIER 75
-#define RAINBOW_DELTA_HUE 2
+#define RAINBOW_DELTA_HUE 3
 #define RAINBOW_CHANCE_OF_GLITTER 200
 
 // For CYLON animation
@@ -205,9 +201,12 @@ void loop() {
 
             } // end normal mode animation switch
 
-        } // end animation if/else block
+        } // end animation selection if/else block
 
-    }
+        writeToRGB();
+        FastLED.show();
+
+    } // end extended blade loop
 
 } // end loop
 
@@ -573,8 +572,8 @@ void clearPixels() {
 
 void rainbowAnimation() {
 
-    static int nextHue;
     static unsigned long lastUpdateTime = 0L;
+    static int nextHue;
 
     if(behaviorChanged) {
 
@@ -583,16 +582,15 @@ void rainbowAnimation() {
 
     }
 
+    if(animationEffectApplied) {
+
+        resetSV();
+
+    }
+
     if(hasEnoughTimePassed(RAINBOW_SPEED_MODIFIER, lastUpdateTime)) {
 
-        for( int i = 0; i < NUM_PIXELS; i++) {
-
-            pixelsHSV[i].hue = nextHue;
-
-        }
-
-        writeToRGB();
-        FastLED.show();
+        changeAllHues(nextHue);
         nextHue += RAINBOW_DELTA_HUE;
         lastUpdateTime = millis();
 
@@ -600,28 +598,25 @@ void rainbowAnimation() {
 
 } // end rainbowAnimation
 
-
+/*******************************************************************************
+ * Use this method to initialize the Rainbow animation.
+ *
+ * @return - An integer value specifying an initial hue.
+ ******************************************************************************/
 int initRainbowAnimation() {
-
-    // Think of a way to smoothly fade each pixel to the desired color.
-
-#ifdef DEBUG
-
-    Serial.println("Starting RAINBOW animation");
-
-#endif
 
     changeAllSaturation(BASE_SATURATION);
     changeAllValues(BASE_VALUE);
-    return retrieveHue();
+    randomSeed(millis());
+    return random8();
 
 } // end initRainbowAnimation
 
 
 void rainbowWithGlitterAnimation() {
 
-    static int nextHue;
     static unsigned long lastUpdateTime = 0L;
+    static int nextHue;
 
     if(behaviorChanged) {
 
@@ -638,16 +633,9 @@ void rainbowWithGlitterAnimation() {
 
     if(hasEnoughTimePassed(RAINBOW_SPEED_MODIFIER, lastUpdateTime)) {
 
-        for( int i = 0; i < NUM_PIXELS; i++) {
-
-            pixelsHSV[i].hue = nextHue;
-
-        }
-
+        changeAllHues(nextHue);
         addGlitter(RAINBOW_CHANCE_OF_GLITTER);
 
-        writeToRGB();
-        FastLED.show();
         nextHue += RAINBOW_DELTA_HUE;
         lastUpdateTime = millis();
 
@@ -656,17 +644,17 @@ void rainbowWithGlitterAnimation() {
 } // end rainbowWithGlitter()
 
 
+/*******************************************************************************
+ * Use this method to initialize the Rainbow w/Glitter animation.
+ *
+ * @return - An integer value specifying an initial hue.
+ ******************************************************************************/
 int initRainbowWithGlitterAnimation() {
-
-#ifdef DEBUG
-
-    Serial.println("Starting RAINBOW w/Glitter animation");
-
-#endif
 
     changeAllSaturation(BASE_SATURATION);
     changeAllValues(BASE_VALUE);
-    return retrieveHue();
+    randomSeed(millis());
+    return random8();
 
 } // end initRainbowWithGlitterAnimation
 
@@ -699,8 +687,6 @@ void verticalRainbowAnimation() {
 
         }
 
-        writeToRGB();
-        FastLED.show();
         nextStartHue += RAINBOW_DELTA_HUE;
         lastUpdateTime = millis();
 
@@ -821,8 +807,6 @@ void cylonAnimation() {
         } // end animation update
 
         // Now that updated values determined, update physical LEDs
-        writeToRGB();
-        FastLED.show();
         lastUpdateTime = millis();
 
     }
@@ -909,8 +893,6 @@ void stableBladeAnimation() {
 
         }
 
-        writeToRGB();
-        FastLED.show();
         lastUpdateTime = millis();
 
     }
@@ -960,8 +942,6 @@ void unstableBladeAnimation() {
         }
 
         addSparkle(UNSTABLE_CHANCE_MODIFIER);
-        writeToRGB();
-        FastLED.show();
         lastUpdateTime = millis();
 
     }
@@ -973,12 +953,6 @@ void initUnstableBladeAnimation() {
 
     changeAllHues(retrieveHue());
     changeAllValues(BASE_VALUE);
-
-#ifdef DEBUG
-
-        Serial.println("Starting UNSTABLE animation");
-
-#endif
 
 } // end initUnstableBladeAnimation
 
@@ -1008,12 +982,6 @@ void initPulsingBladeAnimation() {
 
     changeAllHues(retrieveHue());
 
-#ifdef DEBUG
-
-        Serial.println("Starting PULSING animation");
-
-#endif
-
 } // end initPulsingBladeAnimation
 
 
@@ -1028,7 +996,9 @@ void addGlitter(uint8_t chanceOfGlitter) {
 
   if(random8() < chanceOfGlitter) {
 
-    pixelsHSV[random16(NUM_PIXELS)] = CHSV(255, 0, 255);
+    int tempIndex = random16(NUM_PIXELS);
+    pixelsHSV[tempIndex].saturation = 0;
+    pixelsHSV[tempIndex].value = 255;
     animationEffectApplied = true;
 
   }
@@ -1047,7 +1017,8 @@ void addSparkle(uint8_t chanceOfSparkle) {
 
   if(random8() < chanceOfSparkle) {
 
-    pixelsHSV[random16(NUM_PIXELS)].value = 255;
+    int tempIndex = random16(NUM_PIXELS);
+    pixelsHSV[tempIndex].value = 255;
     animationEffectApplied = true;
 
   }
